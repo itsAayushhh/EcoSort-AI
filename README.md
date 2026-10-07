@@ -1,0 +1,150 @@
+# Smart Waste Bin AI
+
+An intelligent waste classification system using **Computer Vision (YOLOv8)** and **IoT (ESP32-CAM)**. It detects objects, classifies them (Organic/Non-Organic), and controls a sorting bin in real-time.
+
+> Project skripsi/TA-grade: custom-trained YOLOv8, end-to-end pipeline (deteksi -> servo control -> CSV logging).
+
+## Tech Stack
+
+| Layer | Teknologi |
+|-------|-----------|
+| Vision | YOLOv8 (Ultralytics), custom-trained model |
+| Hardware | ESP32-CAM (AI Thinker), servo, ultrasonic, LCD I2C |
+| Komunikasi | HTTP/WiFi (stream port 81, control port 80) |
+| Bahasa | Python 3.11, C++ (Arduino firmware) |
+| Data | Kaggle-format dataset, CSV logging |
+
+## Key Features
+
+- **Robust Detection:** Single-object focus with "Anti-Flicker" smoothing.
+- **Smart Filtering:** Ignores people (`person` class) to focus on waste.
+- **Wireless Control:** Communicates with ESP32 via HTTP/WiFi.
+- **Data Logging:** Saves detection events to `logs/history.csv`.
+- **Simulation Mode:** Test tanpa hardware via webcam (`--source 0 --no-send`).
+
+---
+
+## ⚡ Quick Start on New Laptop
+
+Follow these steps to set up the project on a new Windows machine.
+
+### 1. Install Prerequisites
+
+- **Python 3.11** (Ensure it's added to PATH).
+- **Git** (to clone, if not already done).
+
+### 2. Setup Environment
+
+Open PowerShell in the project folder:
+
+```powershell
+# Create Virtual Environment
+python -m venv .venv
+
+# Activate Environment
+.\.venv\Scripts\Activate.ps1
+
+# Install Dependencies
+pip install -r requirements.txt
+```
+
+### 3. Run the System
+
+**Option A: Single Board (Standard Mode)**
+This connects to your ESP32-CAM for both video (Port 81) and control (Port 80).
+**IMPORTANT: Use the SAME IP address for both arguments.**
+
+```powershell
+python main.py --cam-ip 192.168.1.100 --devkit-ip 192.168.1.100
+```
+
+_(Replace `192.168.1.100` with the actual IP from Serial Monitor)_
+
+**Option B: Simulation Mode (Laptop Webcam)**
+Test without any ESP32 hardware.
+
+```powershell
+python main.py --source 0 --devkit-ip 0.0.0.0 --no-send
+```
+
+---
+
+## 📂 Project Structure
+
+- `main.py`: **Main Application**. Runs the detection and control logic.
+- `esp32cam/`:
+  - `SmartWasteBin_ESP32CAM_StreamPlusController.ino`: **Firmware Utama (Single Board)**.
+- `models/`: Contains trained models (`best_custom.pt`).
+- `scripts/`: Training and preparation scripts.
+- `DATASET/`: Raw image dataset (Kaggle format).
+- `logs/`: Detection history (`history.csv`).
+
+---
+
+## 🎮 Runtime Arguments (`main.py`)
+
+| Argument      | Default            | Description                                         |
+| :------------ | :----------------- | :-------------------------------------------------- |
+| `--source`    | `None`             | Camera ID (0, 1) or Stream URL.                     |
+| `--cam-ip`    | `None`             | Helper to build stream URL (http://<IP>:81/stream). |
+| `--devkit-ip` | `Required`         | IP for control commands (Port 80).                  |
+| `--det-model` | `yolov8n.pt`       | Detection model.                                    |
+| `--conf`      | `0.3`              | Confidence threshold.                               |
+| `--no-send`   | `False`            | Disable HTTP commands (Simulation).                 |
+| `--log-csv`   | `logs/history.csv` | Path to log file.                                   |
+
+**Example using Custom Model:**
+
+```powershell
+python main.py --cam-ip 10.10.10.1 --devkit-ip 10.10.10.1 --det-model models/best_custom.pt
+```
+
+---
+
+## 🛠️ Firmware Organization
+
+- **Target Board**: AI Thinker ESP32-CAM
+- **Firmware Path**: `esp32cam/SmartWasteBin_ESP32CAM_StreamPlusController.ino`
+- **Features**: Stream (Port 81), Servo Control, Ultrasonik, LCD via I2C.
+
+**Wiring Diagram:**
+
+- **Servo**: GPIO 12 (VCC 5V External)
+- **Trigger**: GPIO 13
+- **Echo**: GPIO 2 (Use Voltage Divider!)
+- **SDA**: GPIO 14
+- **SCL**: GPIO 15
+
+---
+
+## 🧠 Training (Optional)
+
+If you need to retrain the classifier:
+
+1. **Prepare Data**:
+   ```powershell
+   python scripts/prepare_kaggle_cls.py
+   ```
+2. **Train Model**:
+   ```powershell
+   python scripts/train_cls.py
+   ```
+
+---
+
+## ⚠️ Troubleshooting
+
+**1. Stream Timeout?**
+
+- Ensure Python and ESP32 are on the same WiFi.
+- **Don't open the stream in Browser while Python is running!** (ESP32 only supports 1 client).
+
+**2. Access Denied (COM Port)?**
+
+- Close other Serial Monitors.
+- Unplug/Replug USB.
+
+**3. Logs not appearing?**
+
+- Check `logs/history.csv`.
+- Only "CONFIRMED" objects (stable detection > 2s) are logged.
